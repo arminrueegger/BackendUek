@@ -6,13 +6,12 @@ const PORT = 3000;
 app.use(express.json());
 
 let books = [
-    {isbn: '123-456', title: '1984', year: 1949, author: 'George Orwell'},
-    {isbn: '789-012', title: 'Der Prozess', year: 1925, author: 'Franz Kafka'},
-    {isbn: '111-222', title: 'Brave New World', year: 1932, author: 'Aldous Huxley'},
-    {isbn: '333-444', title: 'Fahrenheit 451', year: 1953, author: 'Ray Bradbury'},
-    {isbn: '555-666', title: 'Animal Farm', year: 1945, author: 'George Orwell'}
+    {isbn: '123-456', title: '1984', year: 1949, author: 'George Orwell', isLent: true},
+    {isbn: '789-012', title: 'Der Prozess', year: 1925, author: 'Franz Kafka', isLent: true},
+    {isbn: '111-222', title: 'Brave New World', year: 1932, author: 'Aldous Huxley', isLent: false},
+    {isbn: '333-444', title: 'Fahrenheit 451', year: 1953, author: 'Ray Bradbury', isLent: false},
+    {isbn: '555-666', title: 'Animal Farm', year: 1945, author: 'George Orwell', isLent: false}
 ];
-
 
 let lends = [
     {id: '321', customerID: 'cust001', isbn: '123-456', borrowed_at: '2023-03-01T10:00:00Z', returned_at: '2023-03-15T10:00:00Z'},
@@ -28,7 +27,7 @@ app.get('/lends/:id', (req, res) => {
     const lend = lends.find((lend) => lend.id === id);
 
     if (!lend) {
-        return res.status(404).json({error: 'Buch nicht gefunden'});
+        return res.status(404).json({error: 'Ausleihe nicht gefunden'});
     }
 
     res.json(lend);
@@ -36,42 +35,53 @@ app.get('/lends/:id', (req, res) => {
 
 app.post('/lends', (req, res) => {
     const newLend = req.body;
-
     const existingLend = lends.find((lend) => lend.id === newLend.id);
     if (existingLend) {
-        return res.status(409).json({error: 'Buch mit dieser ISBN existiert bereits.'});
+        return res.status(409).json({error: 'Ausleihe existiert bereits.'});
     }
 
-    books.push(newLend);
+    const book = books.find((book) => book.isbn === newLend.isbn);
+    if (!book) {
+        return res.status(404).json({error: 'Buch nicht gefunden'});
+    }
+    if (book.isLent) {
+        return res.status(409).json({error: 'Buch ist verlieen.'});
+    }
+
+    const activeLends = lends.filter(lend =>
+        lend.customerID === newLend.customerID && !lend.returned_at
+    );
+    if (activeLends.length >= 3) {
+        return res.status(409).json({error: 'Kunde hat bereits 3 aktive ausleihen.'});
+    }
+
+    lends.push(newLend);
+    book.isLent = true;
+
     res.status(201).json(newLend);
 });
 
 app.delete('/lends/:id', (req, res) => {
     const id = req.params.id;
-    const LendsIndex = lends.findIndex((lend) => lend.id === id);
-    if (LendsIndex === -1) {
-        return res.status(404).json({error: 'Buch nicht gefunden'});
+    const lendIndex = lends.findIndex((lend) => lend.id === id);
+    if (lendIndex === -1) {
+        return res.status(404).json({error: 'ausleihe nicht gefunden'});
     }
-    books.splice(LendsIndex, 1);
+    const lend = lends[lendIndex];
+    const book = books.find(book => book.isbn === lend.isbn);
+    if (book) {
+        book.isLent = false;
+    }
+    lends.splice(lendIndex, 1);
     res.status(204).send();
 });
-
-
-
-function isBookValid(book) {
-    if (!book.isbn || book.isbn.trim() === '') return false;
-    if (!book.title || book.title.trim() === '') return false;
-    if (book.year === undefined || book.year === null || book.year === '' || Number(book.year) <= 0) return false;
-    if (!book.author || book.author.trim() === '') return false;
-    return true;
-}
 
 app.get('/books', (req, res) => {
     res.json(books);
 });
 
 app.get('/books/:isbn', (req, res) => {
-    const {isbn} = req.params;
+    const isbn = req.params.isbn;
     const book = books.find((b) => b.isbn === isbn);
 
     if (!book) {
@@ -81,14 +91,18 @@ app.get('/books/:isbn', (req, res) => {
     res.json(book);
 });
 
+function isBookValid(book) {
+    return book.isbn && book.title && book.year && book.author;
+}
+
 app.post('/books', (req, res) => {
     const {isbn, title, year, author} = req.body;
 
-    const newBook = {isbn, title, year, author};
+    const newBook = {isbn, title, year, author, isLent: false};
 
     if (!isBookValid(newBook)) {
         return res.status(422).json({
-            error: 'Bitte alle Felder (isbn, title, year, author) korrekt ausfüllen.',
+            error: 'Bitte alle Felder korrekt ausfüllen.',
         });
     }
 
@@ -102,7 +116,7 @@ app.post('/books', (req, res) => {
 });
 
 app.put('/books/:isbn', (req, res) => {
-    const {isbn} = req.params;
+    const isbn = req.params.isbn;
     const bookIndex = books.findIndex((b) => b.isbn === isbn);
 
     if (bookIndex === -1) {
@@ -110,11 +124,11 @@ app.put('/books/:isbn', (req, res) => {
     }
 
     const {title, year, author} = req.body;
-    const updatedBook = {isbn, title, year, author};
+    const updatedBook = {isbn, title, year, author, isLent: books[bookIndex].isLent};
 
     if (!isBookValid(updatedBook)) {
         return res.status(422).json({
-            error: 'Bitte alle Felder (isbn, title, year, author) korrekt ausfüllen.',
+            error: 'Bitte alle Felder korrekt ausfüllen.',
         });
     }
 
@@ -123,7 +137,7 @@ app.put('/books/:isbn', (req, res) => {
 });
 
 app.patch('/books/:isbn', (req, res) => {
-    const {isbn} = req.params;
+    const isbn = req.params.isbn;
     const bookIndex = books.findIndex((b) => b.isbn === isbn);
 
     if (bookIndex === -1) {
@@ -139,7 +153,7 @@ app.patch('/books/:isbn', (req, res) => {
 
     if (!isBookValid(updatedBook)) {
         return res.status(422).json({
-            error: 'Bitte alle Felder (isbn, title, year, author) korrekt ausfüllen.',
+            error: 'Bitte alle Felder korrekt ausfüllen.',
         });
     }
 
@@ -148,7 +162,7 @@ app.patch('/books/:isbn', (req, res) => {
 });
 
 app.delete('/books/:isbn', (req, res) => {
-    const {isbn} = req.params;
+    const isbn = req.params.isbn;
     const bookIndex = books.findIndex((b) => b.isbn === isbn);
 
     if (bookIndex === -1) {
@@ -156,7 +170,7 @@ app.delete('/books/:isbn', (req, res) => {
     }
 
     books.splice(bookIndex, 1);
-    res.status(204).send(); // 204 = No Content
+    res.status(204).send();
 });
 
 app.listen(PORT, () => {

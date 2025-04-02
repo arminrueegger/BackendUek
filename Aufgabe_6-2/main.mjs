@@ -71,7 +71,7 @@ app.get('/books', (req, res) => {
 });
 
 app.get('/books/:isbn', (req, res) => {
-    const {isbn} = req.params;
+    const isbn = req.params.isbn;
     const book = books.find((b) => b.isbn === isbn);
 
     if (!book) {
@@ -102,7 +102,7 @@ app.post('/books', (req, res) => {
 });
 
 app.put('/books/:isbn', (req, res) => {
-    const {isbn} = req.params;
+    const {isbn} = req.params.isbn;
     const bookIndex = books.findIndex((b) => b.isbn === isbn);
 
     if (bookIndex === -1) {
@@ -123,7 +123,7 @@ app.put('/books/:isbn', (req, res) => {
 });
 
 app.patch('/books/:isbn', (req, res) => {
-    const {isbn} = req.params;
+    const {isbn} = req.params.isbn;
     const bookIndex = books.findIndex((b) => b.isbn === isbn);
 
     if (bookIndex === -1) {
@@ -156,7 +156,7 @@ app.delete('/books/:isbn', (req, res) => {
     }
 
     books.splice(bookIndex, 1);
-    res.status(204).send(); // 204 = No Content
+    res.status(204).send();
 });
 
 app.listen(PORT, () => {
