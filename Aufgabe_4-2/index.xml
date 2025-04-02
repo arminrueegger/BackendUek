@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<note>
+    <to>User</to>
+    <from>Server</from>
+    <message>Hello, this is a sample XML!</message>
+</note>
