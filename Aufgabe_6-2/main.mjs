@@ -1,9 +1,12 @@
 import express from 'express';
+import swaggerUi from 'swagger-ui-express';
+import swaggerDocument from './swagger.json'assert { type: 'json' };
 
 const app = express();
-const PORT = 3000;
+const PORT = 3001;
 
 app.use(express.json());
+app.use('/swagger-ui', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 let books = [
     {isbn: '123-456', title: '1984', year: 1949, author: 'George Orwell'},
@@ -34,6 +37,30 @@ app.get('/lends/:id', (req, res) => {
     res.json(lend);
 });
 
+/**
+ * @swagger
+ * /lends:
+ *   post:
+ *     tags:
+ *       - Lends
+ *     summary: Legt einen neuen "Lend" an
+ *     description: Fügt einen neuen "Lend" hinzu, sofern noch keine Ausleihe mit der gleichen ID existiert.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/definitions/Lend'
+ *     responses:
+ *       201:
+ *         description: "Lend" wurde erfolgreich erstellt.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/definitions/Lend'
+ *       409:
+ *         description: "Lend" existiert bereits.
+ */
 app.post('/lends', (req, res) => {
     const newLend = req.body;
 
